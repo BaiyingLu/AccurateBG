@@ -27,31 +27,33 @@ def regressor(
     feature_size = 0
     if low_fid_data.feature is not None:
         feature_size = low_fid_data.feature[0].size
+    print("Feature size is: ")
+    print(feature_size)
 
     x = tf.compat.v1.placeholder(
         tf.float32, [None, sampling_horizon + feature_size], name="x"
     )
+    print("In regressor, x =")
+    print(x)
+
     alpha = tf.Variable(tf.random.normal([], stddev=0.1))
     p = tf.math.sin(tf.range(float(sampling_horizon + feature_size)))
     y = x + alpha * p
-
+    print("In regressor, y =")
+    print(y)
     assert k_size < sampling_horizon + feature_size
     for _ in range(nblock):
         x0 = tf.slice(y, [0, 0], [-1, 1])
         x0s = tf.tile(x0, [1, k_size - 1])
         xx = tf.concat([x0s, y], 1)
         data = tf.reshape(xx, [-1, sampling_horizon + feature_size + k_size - 1, 1])
-
         kernel1 = tf.Variable(tf.random.normal([k_size, 1, 1], stddev=0.1))
         kernel2 = tf.Variable(tf.random.normal([k_size, 1, 1], stddev=0.1))
-        A = tf.squeeze(
-            tf.nn.conv1d(input=data, filters=kernel1, stride=1, padding="VALID")
-        )
-        B = tf.squeeze(
-            tf.nn.conv1d(input=data, filters=kernel2, stride=1, padding="VALID")
-        )
-        y = tf.math.multiply(A, tf.sigmoid(B)) + y
+       
+        A = tf.squeeze(tf.nn.conv1d(input=data, filters=kernel1, stride=1, padding="VALID"), axis=-1)
+        B = tf.squeeze(tf.nn.conv1d(input=data, filters=kernel2, stride=1, padding="VALID"), axis=-1)
 
+        y = tf.math.multiply(A, tf.sigmoid(B)) + y
     # FNN
     with tf.compat.v1.variable_scope("fnn"):
         W = tf.Variable(
@@ -70,7 +72,7 @@ def regressor(
         )
         b = tf.Variable(tf.random.normal([], stddev=0.1), name="b")
         y = tf.tensordot(y, W, [[1], [0]]) + b
-
+    print("line73: Shape of y:", y.shape)
     y = tf.identity(y, name="y")
     y_ = tf.compat.v1.placeholder(tf.float32, [None, sampling_horizon], name="y_")
 
@@ -88,6 +90,9 @@ def regressor(
             y_[:, 0], y[:, -1]
         )
     elif loss_type == "mae":
+        print("Shape of y_:", y_.shape)
+        print("Shape of y:", y.shape)
+
         loss = tf.compat.v1.keras.losses.MAE(y_[:, 0], y[:, -1])
     elif loss_type == "relative_mse":
         loss = tf.math.reduce_mean(
@@ -108,7 +113,7 @@ def regressor(
             reduction=tf.compat.v1.losses.Reduction.MEAN,
         )
         loss = rmse_loss + mae_loss
-
+    print("Before L2 regularization")
     # add L2 regularization
     L2_var = [
         var
@@ -130,12 +135,16 @@ def regressor(
     sess = tf.compat.v1.Session()
     saver = tf.compat.v1.train.Saver()
     sess.run(tf.compat.v1.global_variables_initializer())
+    print("Before training for loop")
+    print("int(low_fid_data.train_n / batch_size) = ", int(low_fid_data.train_n / batch_size))
     for i in range(epoch):
         for _ in range(int(low_fid_data.train_n / batch_size)):
             d = low_fid_data.train_next_batch(batch_size)
             sess.run(train, feed_dict={x: d[0], y_: d[1], weights: d[2]})
         err = sess.run(loss, feed_dict={x: d[0], y_: d[1], weights: d[2]})
         print("Epoch %d, train loss: %f" % (i, err))
+        # Save a checkpoint after each epoch
+        saver.save(sess, os.path.join(outdir, "model_epoch_{}".format(i)))
     saver.save(sess, os.path.join(outdir, "pretrain"))
 
 
@@ -198,6 +207,8 @@ def regressor_transfer(
         print("option not available, please assign 1 or 2 or 3 to option")
         return
 
+    print("train_dataset")
+    print(train_dataset)
     for i in range(epoch):
         for _ in range(int(train_dataset.train_n / batch_size)):
             d = train_dataset.train_next_batch(batch_size)

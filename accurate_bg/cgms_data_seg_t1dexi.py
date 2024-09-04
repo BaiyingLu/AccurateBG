@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from CGMSData import CGMSData
+from CGMSDataT1DEXI import CGMSData
 from mixup import MixUp
 
 
@@ -83,11 +83,6 @@ class CGMSDataSeg(CGMSData):
                 window_length += 1
             self._smooth(window_length, window_length - 4)
         x, y = self._build_dataset(0, len(self.data), padding)
-        print("x here is")
-        print(x)
-        print("y here is")
-        print(y)
-
 
         train_ratio = self.train_test_ratio / (1 + self.train_test_ratio)
         c = int(x.shape[0] * train_ratio)
