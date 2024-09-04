@@ -1,0 +1,6 @@
+model_checkpoint_path: "pretrain"
+all_model_checkpoint_paths: "model_epoch_6"
+all_model_checkpoint_paths: "model_epoch_7"
+all_model_checkpoint_paths: "model_epoch_8"
+all_model_checkpoint_paths: "model_epoch_9"
+all_model_checkpoint_paths: "pretrain"
